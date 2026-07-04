@@ -1,0 +1,10 @@
+#!/bin/sh
+# post-commit hook: call PowerShell helper to push automatically
+BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+if command -v pwsh >/dev/null 2>&1; then
+  pwsh -NoProfile -ExecutionPolicy Bypass -File "scripts/push_auto.ps1" -Branch "$BRANCH"
+elif command -v powershell >/dev/null 2>&1; then
+  powershell -NoProfile -ExecutionPolicy Bypass -File "scripts/push_auto.ps1" -Branch "$BRANCH"
+else
+  echo "[post-commit] PowerShell not found; skipping push_auto"
+fi
