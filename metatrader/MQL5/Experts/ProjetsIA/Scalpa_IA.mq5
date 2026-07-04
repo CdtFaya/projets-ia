@@ -1,6 +1,6 @@
 //+------------------------------------------------------------------+
-//|                                      EA_Scalping_Basic.mq5 |
-//|               Projet IA - Expert Advisor de scalping base       |
+//|                                            Scalpa_IA.mq5 |
+//|                 Expert Advisor de scalping IA - source principale |
 //+------------------------------------------------------------------+
 #property copyright "Projet IA"
 #property version   "1.00"
@@ -35,7 +35,7 @@ double atrBuffer[];
 //+------------------------------------------------------------------+
 int OnInit()
 {
-   Print("EA scalping initialisé sur ", _Symbol, " - ", EnumToString(_Period));
+   Print("Scalpa_IA initialisé sur ", _Symbol, " - ", EnumToString(_Period));
 
    trade.SetExpertMagicNumber(InpMagic);
    trade.SetTypeFilling(ORDER_FILLING_FOK);
@@ -70,7 +70,7 @@ void OnDeinit(const int reason)
    if(atrHandle != INVALID_HANDLE)
       IndicatorRelease(atrHandle);
 
-   Print("EA scalping arrêté. Raison : ", reason);
+   Print("Scalpa_IA arrêté. Raison : ", reason);
 }
 
 //+------------------------------------------------------------------+
@@ -126,7 +126,7 @@ void OnTick()
       sl = NormalizeDouble(sl, _Digits);
       tp = NormalizeDouble(tp, _Digits);
 
-      bool result = trade.Buy(InpLotSize, _Symbol, tick.ask, sl, tp, "EA_Scalping");
+      bool result = trade.Buy(InpLotSize, _Symbol, tick.ask, sl, tp, "Scalpa_IA");
       if(result && trade.ResultRetcode() == TRADE_RETCODE_DONE)
          Print("Achat ouvert : ", tick.ask);
       else
@@ -148,7 +148,7 @@ void OnTick()
       sl = NormalizeDouble(sl, _Digits);
       tp = NormalizeDouble(tp, _Digits);
 
-      bool result = trade.Sell(InpLotSize, _Symbol, tick.bid, sl, tp, "EA_Scalping");
+      bool result = trade.Sell(InpLotSize, _Symbol, tick.bid, sl, tp, "Scalpa_IA");
       if(result && trade.ResultRetcode() == TRADE_RETCODE_DONE)
          Print("Vente ouverte : ", tick.bid);
       else
