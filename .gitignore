@@ -1,0 +1,13 @@
+# MetaTrader build outputs
+*.ex5
+*.ex4
+*.dll
+*.log
+*.tmp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
