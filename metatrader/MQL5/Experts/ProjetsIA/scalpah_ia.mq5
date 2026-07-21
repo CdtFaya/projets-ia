@@ -243,6 +243,15 @@ void ManageTrailingStops()
    if(PositionsTotal() == 0)
       return;
 
+   // Distance minimale imposée par le broker entre le prix courant et un stop.
+   // Indispensable sur les instruments à prix élevé (crypto, indices) où
+   // InpTrailingStepPoints/InpBreakEvenBufferPoints (pensés pour du forex)
+   // sont largement inférieurs à cette distance -> sans ce contrôle, chaque
+   // PositionModify est rejeté avec "Invalid stops" et le SL ne bouge jamais.
+   long stopsLevelPoints = SymbolInfoInteger(_Symbol, SYMBOL_TRADE_STOPS_LEVEL);
+   long freezeLevelPoints = SymbolInfoInteger(_Symbol, SYMBOL_TRADE_FREEZE_LEVEL);
+   double minDistance = MathMax(stopsLevelPoints, freezeLevelPoints) * Point();
+
    for(int i=PositionsTotal()-1; i>=0; --i)
    {
       ulong ticket = PositionGetTicket(i);
@@ -266,45 +275,54 @@ void ManageTrailingStops()
       double atr = atrBuffer[0];
 
       double triggerPoints = (InpTrailingATRMultiplier * atr) / Point();
+      double trailingDistance = MathMax(InpTrailingStepPoints * Point(), minDistance + Point());
 
       double newSL = sl;
 
       if(type == POSITION_TYPE_BUY)
       {
+         // Le SL d'une position BUY se déclenche sur le Bid : il doit rester
+         // au moins minDistance en dessous du Bid courant.
+         double maxSL = currentBid - minDistance - Point();
          double profitPoints = (currentBid - openPrice) / Point();
-         // move to breakeven
+
          if(profitPoints >= triggerPoints)
          {
-            double be = openPrice + InpBreakEvenBufferPoints * Point();
-            if(be > sl)
+            double be = MathMin(openPrice + InpBreakEvenBufferPoints * Point(), maxSL);
+            if(be > sl && be <= maxSL)
                newSL = NormalizeDouble(be, _Digits);
          }
-         // trailing step
-         double desiredSL = currentBid - InpTrailingStepPoints * Point();
-         if(desiredSL > newSL + InpTrailingStepPoints * Point())
+
+         double desiredSL = currentBid - trailingDistance;
+         if(desiredSL > newSL + InpTrailingStepPoints * Point() && desiredSL <= maxSL)
             newSL = NormalizeDouble(desiredSL, _Digits);
       }
       else // SELL
       {
-         double profitPoints = (openPrice - currentBid) / Point();
+         // Le SL d'une position SELL se déclenche sur l'Ask : il doit rester
+         // au moins minDistance au-dessus de l'Ask courant.
+         double minSL = currentAsk + minDistance + Point();
+         double profitPoints = (openPrice - currentAsk) / Point();
+
          if(profitPoints >= triggerPoints)
          {
-            double be = openPrice - InpBreakEvenBufferPoints * Point();
-            if(be < sl || sl == 0.0)
+            double be = MathMax(openPrice - InpBreakEvenBufferPoints * Point(), minSL);
+            if((be < sl || sl == 0.0) && be >= minSL)
                newSL = NormalizeDouble(be, _Digits);
          }
-         double desiredSL = currentBid + InpTrailingStepPoints * Point();
-         if(desiredSL < newSL - InpTrailingStepPoints * Point() || newSL==0.0)
+
+         double desiredSL = currentAsk + trailingDistance;
+         if((desiredSL < newSL - InpTrailingStepPoints * Point() || newSL == 0.0) && desiredSL >= minSL)
             newSL = NormalizeDouble(desiredSL, _Digits);
       }
 
-      if(newSL != sl)
+      if(newSL != sl && newSL > 0.0)
       {
          bool modified = trade.PositionModify(_Symbol, newSL, tp);
          if(modified)
             Print("SL modifié (ticket): ", ticket, " -> ", DoubleToString(newSL,_Digits));
          else
-            Print("Échec modification SL: ", trade.ResultRetcode(), " ", trade.ResultComment());
+            Print("Échec modification SL (ticket): ", ticket, " -> ", DoubleToString(newSL,_Digits), " : ", trade.ResultRetcode(), " ", trade.ResultComment());
       }
    }
 }

@@ -11,3 +11,6 @@ Thumbs.db
 
 # IDE
 .vscode/
+
+# Claude Code local settings (per-machine permission approvals)
+.claude/settings.local.json
