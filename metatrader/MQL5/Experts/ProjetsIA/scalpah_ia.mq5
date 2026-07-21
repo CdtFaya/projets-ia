@@ -255,7 +255,8 @@ void ManageTrailingStops()
 
    for(int i=PositionsTotal()-1; i>=0; --i)
    {
-      if(!PositionSelectByIndex(i))
+      ulong ticket = PositionGetTicket(i);
+      if(ticket == 0)
          continue;
 
       string sym = PositionGetString(POSITION_SYMBOL);
@@ -311,7 +312,7 @@ void ManageTrailingStops()
       {
          bool modified = trade.PositionModify(_Symbol, newSL, tp);
          if(modified)
-            Print("SL modifié (ticket): ", PositionGetInteger(POSITION_TICKET), " -> ", DoubleToString(newSL,_Digits));
+            Print("SL modifié (ticket): ", ticket, " -> ", DoubleToString(newSL,_Digits));
          else
             Print("Échec modification SL: ", trade.ResultRetcode(), " ", trade.ResultComment());
       }
