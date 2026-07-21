@@ -28,8 +28,10 @@ input int InpTrailingStepPoints = 5;   // Pas minimal (points) avant déplacemen
 input double InpRiskPercent = 0.5;     // % du solde risqué par trade (0 = désactivé)
 input double InpMinLot = 0.01;         // Lot min voulu
 input double InpMaxLot = 1.0;          // Lot max voulu
+input bool InpDebugLog = true;         // Logguer une raison de blocage à chaque nouvelle bougie
 
 CTrade trade;
+datetime lastDebugBarTime = 0;
 int fastEmaHandle = INVALID_HANDLE;
 int slowEmaHandle = INVALID_HANDLE;
 int atrHandle = INVALID_HANDLE;
@@ -51,6 +53,9 @@ double slowEmaBufferM15[];
 int OnInit()
 {
    Print("Scalpa_IA initialisé sur ", _Symbol, " - ", EnumToString(_Period));
+   long currentSpread = SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
+   Print("Spread courant : ", currentSpread, " points  |  InpMaxSpreadPoints = ", InpMaxSpreadPoints,
+         (currentSpread > InpMaxSpreadPoints ? "  /!\\ Spread courant DEJA supérieur au max autorisé - aucune entrée ne sera prise tant que ce n'est pas corrigé." : ""));
 
    trade.SetExpertMagicNumber(InpMagic);
    trade.SetTypeFilling(ORDER_FILLING_FOK);
@@ -106,11 +111,23 @@ void OnDeinit(const int reason)
 //+------------------------------------------------------------------+
 void OnTick()
 {
+   bool isNewBar = (iTime(_Symbol, _Period, 0) != lastDebugBarTime);
+   if(isNewBar)
+      lastDebugBarTime = iTime(_Symbol, _Period, 0);
+
    if(!IsSessionAllowed())
+   {
+      if(InpDebugLog && isNewBar)
+         Print("Bloqué : hors session (heure serveur=", TimeToString(TimeCurrent(), TIME_MINUTES), ")");
       return;
+   }
 
    if(!RefreshIndicators())
+   {
+      if(InpDebugLog && isNewBar)
+         Print("Bloqué : indicateurs du timeframe principal pas encore prêts (historique insuffisant).");
       return;
+   }
 
    MqlTick tick;
    if(!SymbolInfoTick(_Symbol, tick))
@@ -118,7 +135,11 @@ void OnTick()
 
    double spreadPoints = (tick.ask - tick.bid) / Point();
    if(spreadPoints > InpMaxSpreadPoints)
+   {
+      if(InpDebugLog && isNewBar)
+         Print("Bloqué : spread=", DoubleToString(spreadPoints,1), " pts > max autorisé=", InpMaxSpreadPoints, " pts");
       return;
+   }
 
    double fastNow = fastEmaBuffer[0];
    double fastPrev = fastEmaBuffer[1];
@@ -136,6 +157,11 @@ void OnTick()
 
    bool longSignal = (fastNow > slowNow && fastPrev <= slowPrev && tick.ask > fastNow);
    bool shortSignal = (fastNow < slowNow && fastPrev >= slowPrev && tick.bid < fastNow);
+
+   if(InpDebugLog && isNewBar)
+      Print("Check : fastEMA=", DoubleToString(fastNow,_Digits), " (prev=", DoubleToString(fastPrev,_Digits),
+            ") slowEMA=", DoubleToString(slowNow,_Digits), " (prev=", DoubleToString(slowPrev,_Digits),
+            ") -> long=", longSignal, " short=", shortSignal);
 
    if(!longSignal && !shortSignal)
       return;
@@ -202,27 +228,16 @@ bool RefreshIndicators()
       return(false);
    if(CopyBuffer(atrHandle, 0, 0, 2, atrBuffer) < 2)
       return(false);
-   // multi-TF buffers
+   // multi-TF buffers : usage purement informatif (panneau) -> un échec ici ne doit
+   // jamais bloquer les entrées sur le timeframe principal.
    if(fastEmaHandleM5 != INVALID_HANDLE)
-   {
-      if(CopyBuffer(fastEmaHandleM5, 0, 0, 2, fastEmaBufferM5) < 2)
-         return(false);
-   }
+      CopyBuffer(fastEmaHandleM5, 0, 0, 2, fastEmaBufferM5);
    if(slowEmaHandleM5 != INVALID_HANDLE)
-   {
-      if(CopyBuffer(slowEmaHandleM5, 0, 0, 2, slowEmaBufferM5) < 2)
-         return(false);
-   }
+      CopyBuffer(slowEmaHandleM5, 0, 0, 2, slowEmaBufferM5);
    if(fastEmaHandleM15 != INVALID_HANDLE)
-   {
-      if(CopyBuffer(fastEmaHandleM15, 0, 0, 2, fastEmaBufferM15) < 2)
-         return(false);
-   }
+      CopyBuffer(fastEmaHandleM15, 0, 0, 2, fastEmaBufferM15);
    if(slowEmaHandleM15 != INVALID_HANDLE)
-   {
-      if(CopyBuffer(slowEmaHandleM15, 0, 0, 2, slowEmaBufferM15) < 2)
-         return(false);
-   }
+      CopyBuffer(slowEmaHandleM15, 0, 0, 2, slowEmaBufferM15);
 
    return(true);
 }
