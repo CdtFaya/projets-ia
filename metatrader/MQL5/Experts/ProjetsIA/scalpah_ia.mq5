@@ -15,7 +15,6 @@ input double InpATRMultiplier = 1.2;   // Multiplicateur ATR pour SL/TP
 input double InpLotSize = 0.01;        // Taille de position
 input int InpStopLossPoints = 25;      // Stop Loss en points si ATR désactivé
 input int InpTakeProfitPoints = 40;    // Take Profit en points si ATR désactivé
-input int InpMaxSpreadPoints = 8;      // Spread maximal autorisé
 input int InpMagic = 100201;           // Magic number
 input bool InpUseATRStops = true;      // Utiliser ATR pour les stops
 input bool InpUseSessionFilter = true; // Filtrer les heures de trading
@@ -53,9 +52,6 @@ double slowEmaBufferM15[];
 int OnInit()
 {
    Print("Scalpa_IA initialisé sur ", _Symbol, " - ", EnumToString(_Period));
-   long currentSpread = SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
-   Print("Spread courant : ", currentSpread, " points  |  InpMaxSpreadPoints = ", InpMaxSpreadPoints,
-         (currentSpread > InpMaxSpreadPoints ? "  /!\\ Spread courant DEJA supérieur au max autorisé - aucune entrée ne sera prise tant que ce n'est pas corrigé." : ""));
 
    trade.SetExpertMagicNumber(InpMagic);
    trade.SetTypeFilling(ORDER_FILLING_FOK);
@@ -134,12 +130,6 @@ void OnTick()
       return;
 
    double spreadPoints = (tick.ask - tick.bid) / Point();
-   if(spreadPoints > InpMaxSpreadPoints)
-   {
-      if(InpDebugLog && isNewBar)
-         Print("Bloqué : spread=", DoubleToString(spreadPoints,1), " pts > max autorisé=", InpMaxSpreadPoints, " pts");
-      return;
-   }
 
    double fastNow = fastEmaBuffer[0];
    double fastPrev = fastEmaBuffer[1];
